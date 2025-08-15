@@ -1,0 +1,899 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Classic Snake — Nokia Style (Single File)</title>
+<style>
+  /* ====== Dark theme base ====== */
+  :root{
+    --bg:#071017;
+    --panel:#0d1620;
+    --accent:#2bd36b; /* snake */
+    --accent-2:#86ffb1;
+    --food:#ff5c5c;
+    --muted:#9aa6b2;
+    --glass: rgba(255,255,255,0.03);
+    --glass-2: rgba(255,255,255,0.02);
+    --ui-radius:10px;
+    --bar-height:56px;
+    --font-sans: Inter, "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial;
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    background:linear-gradient(180deg,var(--bg),#031018 140%);
+    color:#e6f0f2;
+    font-family:var(--font-sans);
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    box-sizing:border-box;
+  }
+
+  /* Container that holds the game and UI bars */
+  .game-shell{
+    width: min(920px, 96vw);
+    max-width:1000px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  /* Top bar */
+  .top-bar{
+    height:var(--bar-height);
+    background:linear-gradient(180deg,var(--panel),#061018);
+    border-radius:var(--ui-radius);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 16px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+    font-weight:600;
+    gap:10px;
+  }
+  .top-left, .top-right { display:flex; gap:12px; align-items:center; }
+  .metric{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    font-size:13px;
+    color:var(--muted);
+    min-width:84px;
+    text-align:center;
+  }
+  .metric .value{
+    color:var(--accent-2);
+    font-size:18px;
+    font-weight:700;
+  }
+
+  /* Main play area */
+  .canvas-wrap{
+    background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+    border-radius: 12px;
+    padding:14px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+  }
+  /* Canvas is responsive; CSS size matters for hiDPI scaling in JS */
+  canvas#playfield{
+    width: min(720px, 78vmin);
+    height: min(720px, 78vmin);
+    background: linear-gradient(180deg, rgba(255,255,255,0.006), rgba(255,255,255,0.002));
+    border-radius: 8px;
+    display:block;
+    touch-action: none; /* capture swipes */
+    box-shadow: 0 8px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+  }
+
+  /* Bottom controls bar */
+  .bottom-bar{
+    height:var(--bar-height);
+    display:flex;
+    gap:12px;
+    align-items:center;
+    justify-content:space-between;
+    background:linear-gradient(180deg,var(--panel), rgba(6,16,24,0.9));
+    padding:8px;
+    border-radius:var(--ui-radius);
+  }
+  .controls { display:flex; gap:8px; align-items:center;}
+  button.btn{
+    background:var(--glass);
+    color:var(--accent-2);
+    border:1px solid rgba(255,255,255,0.03);
+    padding:8px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:700;
+    outline:none;
+  }
+  button.btn:focus{ box-shadow: 0 0 0 3px rgba(43,211,107,0.14); }
+
+  button.danger{ color:#ffb3b3; border-color: rgba(255,92,92,0.12); }
+  button.secondary{ color:var(--muted); border-color: rgba(255,255,255,0.02); }
+
+  /* Settings modal */
+  .modal-backdrop{
+    position:fixed; inset:0;
+    display:none;
+    align-items:center; justify-content:center;
+    background:linear-gradient(0deg, rgba(2,6,8,0.6), rgba(2,6,8,0.6));
+    z-index:60;
+  }
+  .modal{
+    width:min(720px,94vw);
+    background:linear-gradient(180deg,#071017,#041018);
+    border-radius:12px;
+    padding:16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    color:var(--muted);
+  }
+  .modal h2{ margin:0 0 8px 0; color: #e6f0f2; }
+  .options{ display:flex; gap:16px; flex-wrap:wrap; margin-top:8px; }
+  .option-group{ flex:1 1 180px; background:var(--glass-2); padding:10px; border-radius:8px; }
+  label{display:block; font-size:13px; margin-bottom:6px; color:var(--muted);}
+  input[type="radio"], input[type="checkbox"]{ margin-right:8px; }
+
+  .modal .actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+
+  /* Touch controls overlay (mobile): 4 buttons in a diamond */
+  .touch-controls{
+    position: absolute;
+    right:18px;
+    bottom:110px;
+    display:grid;
+    grid-template-columns:48px 48px 48px;
+    grid-template-rows:48px 48px 48px;
+    gap:6px;
+    z-index:50;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  .touch-controls button{
+    width:48px; height:48px;
+    border-radius:8px;
+    border:none;
+    background:rgba(255,255,255,0.02);
+    color:var(--muted);
+    font-weight:700;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+  }
+  .touch-controls .up{ grid-column:2; grid-row:1; }
+  .touch-controls .left{ grid-column:1; grid-row:2; }
+  .touch-controls .right{ grid-column:3; grid-row:2; }
+  .touch-controls .down{ grid-column:2; grid-row:3; }
+
+  /* Small screens - reposition touch controls to center-bottom */
+  @media (max-width:720px){
+    .touch-controls { left:50%; transform:translateX(-50%); right:auto; bottom:110px; }
+    .canvas-wrap{ padding:10px;}
+  }
+
+  /* Focus styles & accessibility helpers */
+  .sr-only{ position:absolute!important; width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+  .muted{ color:var(--muted); font-size:13px; }
+
+  /* small misc */
+  .kbd { font-family: monospace; font-size:12px; background:rgba(255,255,255,0.02); padding:4px 6px; border-radius:6px; color:var(--muted); }
+</style>
+</head>
+<body>
+  <div class="game-shell" role="application" aria-label="Classic Snake game">
+    <!-- Top bar -->
+    <div class="top-bar" role="region" aria-label="Game status">
+      <div class="top-left">
+        <div class="metric" aria-hidden="false">
+          <div class="label muted">SCORE</div>
+          <div id="score" class="value" aria-live="polite">0</div>
+        </div>
+        <div class="metric">
+          <div class="label muted">BEST</div>
+          <div id="best" class="value">0</div>
+        </div>
+      </div>
+      <div class="top-right">
+        <div class="metric">
+          <div class="label muted">SPEED</div>
+          <div id="speed" class="value">0</div>
+        </div>
+        <div style="font-size:13px;color:var(--muted); margin-left:12px;">Tip: Use arrow keys or WASD • <span class="kbd">Space</span> to pause</div>
+      </div>
+    </div>
+
+    <!-- Canvas area -->
+    <div class="canvas-wrap" style="position:relative;">
+      <canvas id="playfield" tabindex="0" aria-label="Snake play field"></canvas>
+
+      <!-- Touch directional controls -->
+      <div class="touch-controls" aria-hidden="false">
+        <button class="up" data-dir="up" aria-label="Move up">↑</button>
+        <button class="left" data-dir="left" aria-label="Move left">←</button>
+        <button class="right" data-dir="right" aria-label="Move right">→</button>
+        <button class="down" data-dir="down" aria-label="Move down">↓</button>
+      </div>
+    </div>
+
+    <!-- Bottom bar -->
+    <div class="bottom-bar" role="toolbar" aria-label="Controls">
+      <div class="controls">
+        <button class="btn" id="pauseBtn" aria-pressed="false" aria-label="Pause or resume game">Pause</button>
+        <button class="btn secondary" id="restartBtn" aria-label="Restart game">Restart</button>
+      </div>
+      <div class="controls">
+        <button class="btn" id="settingsBtn" aria-haspopup="dialog" aria-controls="settingsModal">Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="modal-backdrop" id="settingsModal" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Settings dialog">
+    <div class="modal" role="document">
+      <h2>Settings</h2>
+      <div class="options">
+        <div class="option-group">
+          <label>Difficulty</label>
+          <label><input type="radio" name="difficulty" value="slow"> Slow</label>
+          <label><input type="radio" name="difficulty" value="normal" checked> Normal</label>
+          <label><input type="radio" name="difficulty" value="fast"> Fast</label>
+        </div>
+        <div class="option-group">
+          <label>Grid size</label>
+          <label><input type="radio" name="gridsize" value="small"> Small (15×15)</label>
+          <label><input type="radio" name="gridsize" value="medium" checked> Medium (20×20)</label>
+          <label><input type="radio" name="gridsize" value="large"> Large (28×28)</label>
+        </div>
+        <div class="option-group">
+          <label>Wrap mode</label>
+          <label><input type="radio" name="wrap" value="on"> On (wrap around)</label>
+          <label><input type="radio" name="wrap" value="off" checked> Off (walls kill)</label>
+
+          <hr style="opacity:0.05;margin:8px 0;">
+          <label><input type="checkbox" id="soundToggle" checked> Sound effects</label>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn secondary" id="closeSettings">Cancel</button>
+        <button class="btn" id="applySettings">Apply</button>
+      </div>
+      <p style="margin-top:12px;font-size:13px;color:var(--muted);">Changes apply immediately and restart the game.</p>
+    </div>
+  </div>
+
+<script>
+/* ========================================================
+   Classic Snake (single-file)
+   - Modular functions: init(), update(), draw(), spawnFood(), handleInput(), etc.
+   - Responsive HiDPI canvas scaling.
+   - LocalStorage best score.
+   - AudioContext beeps for eat/crash/pause.
+   - Mobile touch controls + swipe.
+   - Settings modal with difficulty, grid size, wrap, sound.
+   ======================================================== */
+
+(() => {
+  "use strict";
+
+  /* -----------------------------
+     DOM Refs
+     ----------------------------- */
+  const canvas = document.getElementById('playfield');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const scoreEl = document.getElementById('score');
+  const bestEl = document.getElementById('best');
+  const speedEl = document.getElementById('speed');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const modal = document.getElementById('settingsModal');
+  const applySettingsBtn = document.getElementById('applySettings');
+  const closeSettingsBtn = document.getElementById('closeSettings');
+  const touchControls = document.querySelector('.touch-controls');
+
+  /* -----------------------------
+     Local storage keys and initial settings
+     ----------------------------- */
+  const LS_BEST = 'snake_best_score_v1';
+  const LS_SETTINGS = 'snake_settings_v1';
+
+  const defaultSettings = {
+    difficulty: 'normal', // slow | normal | fast
+    gridsize: 'medium',   // small | medium | large
+    wrap: false,
+    sound: true
+  };
+
+  // Restore stored settings if present
+  let settings = Object.assign({}, defaultSettings);
+  try{
+    const s = JSON.parse(localStorage.getItem(LS_SETTINGS));
+    if (s) settings = Object.assign(settings, s);
+  }catch(e){ /* ignore */ }
+
+  /* Map difficulty to ticks (cells) per second and speed increment */
+  const DIFFICULTY = {
+    slow: 6,
+    normal: 9,
+    fast: 12
+  };
+  const SPEED_INCREMENT = 0.3; // TPS increase per food
+  const MAX_SPEED = 32; // cap TPS
+
+  /* Map gridsize to number of cols/rows (square board) */
+  const GRID_SIZES = {
+    small: 15,
+    medium: 20,
+    large: 28
+  };
+
+  /* -----------------------------
+     Game state
+     ----------------------------- */
+  let state = null; // will hold mutable game state
+
+  function newState(){
+    const grid = GRID_SIZES[settings.gridsize] || GRID_SIZES.medium;
+    const baseTPS = DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
+
+    const cols = grid, rows = grid;
+    const startLen = Math.max(3, Math.floor(grid / 5)); // initial snake length
+    const center = { x: Math.floor(cols/2), y: Math.floor(rows/2) };
+
+    // start snake horizontally to right
+    const snake = [];
+    for(let i = startLen-1; i >= 0; i--){
+      snake.push({ x: center.x - i, y: center.y });
+    }
+
+    return {
+      cols, rows,
+      snake,
+      dir: { x: 1, y: 0 },        // current direction vector
+      nextDir: null,             // queued direction (applied next tick)
+      ticksPerSecond: baseTPS,   // current speed in cells/sec
+      accumulator: 0,            // for fixed-step loop
+      lastTime: 0,
+      stepMs: 1000 / baseTPS,
+      food: null,
+      score: 0,
+      best: Number(localStorage.getItem(LS_BEST) || 0),
+      paused: false,
+      running: true,
+      grow: 0,                   // how many extra segments to grow
+      wrap: !!settings.wrap,
+      sound: !!settings.sound
+    };
+  }
+
+  /* -----------------------------
+     Audio - small beep generator using Web Audio API
+     ----------------------------- */
+  let audioCtx = null;
+  function ensureAudio(){
+    if (!audioCtx) {
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (e) {
+        audioCtx = null;
+      }
+    }
+    return audioCtx;
+  }
+  // play a short beep with type: 'eat'|'crash'|'pause'
+  function playBeep(type='eat'){
+    if (!state || !state.sound) return;
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    let now = ctx.currentTime;
+    let freq = 600, dur=0.12;
+    if (type === 'eat'){ freq=800; dur=0.12; o.type='sine'; }
+    else if (type === 'crash'){ freq=110; dur=0.36; o.type='sawtooth'; }
+    else if (type === 'pause'){ freq=360; dur=0.08; o.type='square'; }
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.3, now + 0.01);
+    o.frequency.setValueAtTime(freq, now);
+    o.start(now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    o.stop(now + dur + 0.02);
+  }
+
+  /* -----------------------------
+     Input handling (keyboard, touch buttons, swipe)
+     ----------------------------- */
+
+  // Map for keyboard keys -> vector
+  const KEY_TO_DIR = {
+    'arrowup':    {x:0,y:-1},
+    'arrowdown':  {x:0,y:1},
+    'arrowleft':  {x:-1,y:0},
+    'arrowright': {x:1,y:0},
+    'w': {x:0,y:-1},
+    's': {x:0,y:1},
+    'a': {x:-1,y:0},
+    'd': {x:1,y:0}
+  };
+
+  // Set the desired direction (queued). Prevent opposite-direction reversal instantly.
+  function setDirection(dirVec){
+    if (!state || !state.running) return;
+    // ignore if paused
+    if (state.paused) return;
+    const cur = state.dir;
+    // Prevent reversing on itself (opposite vector).
+    if (dirVec.x === -cur.x && dirVec.y === -cur.y) return;
+    // queue it to apply at next tick
+    state.nextDir = dirVec;
+  }
+
+  // Keyboard
+  window.addEventListener('keydown', (ev) => {
+    const key = (ev.key || '').toLowerCase();
+    if (key === ' ' || ev.code === 'Space') {
+      togglePause();
+      ev.preventDefault();
+      return;
+    }
+    const dir = KEY_TO_DIR[key];
+    if (dir) {
+      setDirection(dir);
+      ev.preventDefault();
+    }
+  });
+
+  // Touch buttons
+  touchControls.querySelectorAll('button[data-dir]').forEach(btn => {
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); const dirName = btn.dataset.dir; setDirectionName(dirName); }, {passive:false});
+    btn.addEventListener('mousedown', (e) => { e.preventDefault(); const dirName = btn.dataset.dir; setDirectionName(dirName); });
+  });
+  function setDirectionName(name){
+    const m = { up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0} };
+    if (m[name]) setDirection(m[name]);
+  }
+
+  // Swipe detection on canvas
+  let touchStartPos = null;
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches && e.touches[0]) {
+      const t = e.touches[0];
+      touchStartPos = { x: t.clientX, y: t.clientY, time: Date.now() };
+    }
+  }, {passive:true});
+  canvas.addEventListener('touchend', (e) => {
+    if (!touchStartPos) return;
+    const touch = (e.changedTouches && e.changedTouches[0]) || null;
+    if (!touch) { touchStartPos = null; return; }
+    const dx = touch.clientX - touchStartPos.x;
+    const dy = touch.clientY - touchStartPos.y;
+    const absX = Math.abs(dx), absY = Math.abs(dy);
+    const threshold = 20; // minimal swipe distance
+    if (Math.max(absX, absY) < threshold) { touchStartPos = null; return; }
+    if (absX > absY) {
+      if (dx > 0) setDirection({x:1,y:0}); else setDirection({x:-1,y:0});
+    } else {
+      if (dy > 0) setDirection({x:0,y:1}); else setDirection({x:0,y:-1});
+    }
+    touchStartPos = null;
+  }, {passive:true});
+
+  /* -----------------------------
+     Utility helpers
+     ----------------------------- */
+  function randInt(n){ return Math.floor(Math.random()*n); }
+  function posEquals(a,b){ return a.x===b.x && a.y===b.y; }
+
+  /* -----------------------------
+     Spawn food on an empty cell (never on snake).
+     ----------------------------- */
+  function spawnFood(){
+    if (!state) return;
+    const { cols, rows, snake } = state;
+    const total = cols * rows;
+    if (snake.length >= total){
+      // Board full => player wins / stop spawning
+      state.food = null;
+      return;
+    }
+    // Build a set of occupied cells to speed up checks
+    const occupied = new Set(snake.map(s => `${s.x},${s.y}`));
+    let tries = 0;
+    while (tries < 10000) {
+      const fx = randInt(cols);
+      const fy = randInt(rows);
+      const key = `${fx},${fy}`;
+      if (!occupied.has(key)) {
+        state.food = { x: fx, y: fy };
+        return;
+      }
+      tries++;
+    }
+    // fallback linear search (guaranteed find)
+    for (let y=0;y<rows;y++){
+      for (let x=0;x<cols;x++){
+        const key = `${x},${y}`;
+        if (!occupied.has(key)){
+          state.food = {x,y};
+          return;
+        }
+      }
+    }
+  }
+
+  /* -----------------------------
+     Game update: advance snake one cell (per tick).
+     Uses logic to allow moving into tail if that tail gets removed this tick.
+     ----------------------------- */
+  function step(){
+    if (!state || !state.running || state.paused) return;
+
+    const head = state.snake[state.snake.length - 1];
+    // apply queued direction if any (but only if not opposite)
+    if (state.nextDir) {
+      const nd = state.nextDir;
+      if (!(nd.x === -state.dir.x && nd.y === -state.dir.y)) {
+        state.dir = nd;
+      }
+      state.nextDir = null;
+    }
+
+    let nx = head.x + state.dir.x;
+    let ny = head.y + state.dir.y;
+
+    // wall behavior
+    if (state.wrap) {
+      nx = (nx % state.cols + state.cols) % state.cols;
+      ny = (ny % state.rows + state.rows) % state.rows;
+    } else {
+      if (nx < 0 || nx >= state.cols || ny < 0 || ny >= state.rows) {
+        // collision with wall -> die
+        die();
+        return;
+      }
+    }
+
+    const newHead = { x: nx, y: ny };
+
+    // Check collision with body.
+    // It's allowed to move into the tail cell if tail will be removed this tick (i.e., not growing).
+    const willGrow = state.grow > 0 || (state.food && newHead.x === state.food.x && newHead.y === state.food.y);
+    const excludeTailIndex = willGrow ? -1 : 0; // if not growing, tail will be removed so moving into tail is okay
+    // Build set of body cells excluding tail if allowed
+    let collision = false;
+    const bodyLen = state.snake.length;
+    const checkLen = willGrow ? bodyLen : bodyLen - 1; // if not growing, last segment won't collide
+    for (let i = 0; i < checkLen; i++){
+      if (posEquals(state.snake[i], newHead)){
+        collision = true; break;
+      }
+    }
+    if (collision){
+      die();
+      return;
+    }
+
+    // Add new head
+    state.snake.push(newHead);
+
+    // Did we eat food?
+    if (state.food && newHead.x === state.food.x && newHead.y === state.food.y) {
+      state.score += 1;
+      state.grow += 1; // grow by 1 (will prevent tail removal once)
+      playBeep('eat');
+      // increase speed gradually
+      state.ticksPerSecond = Math.min(MAX_SPEED, state.ticksPerSecond + SPEED_INCREMENT);
+      state.stepMs = 1000 / state.ticksPerSecond;
+      spawnFood();
+    }
+
+    // If grow > 0 then we will not remove tail this tick
+    if (state.grow > 0) {
+      state.grow = Math.max(0, state.grow - 1);
+    } else {
+      // normal move: remove tail
+      state.snake.shift();
+    }
+
+    // Update score/best display
+    scoreEl.textContent = state.score;
+    if (state.score > state.best) {
+      state.best = state.score;
+      bestEl.textContent = state.best;
+      localStorage.setItem(LS_BEST, String(state.best));
+    }
+    // update speed label
+    speedEl.textContent = state.ticksPerSecond.toFixed(1) + ' cell/s';
+  }
+
+  /* -----------------------------
+     Die: stop the game and play crash beep.
+     ----------------------------- */
+  function die(){
+    if (!state) return;
+    state.running = false;
+    playBeep('crash');
+    // mark paused state as true to prevent updates; but provide restart button
+    state.paused = true;
+    pauseBtn.textContent = 'Paused';
+    pauseBtn.setAttribute('aria-pressed','true');
+    // show a quick visual flash on canvas
+    flashGameOver();
+  }
+
+  function flashGameOver(){
+    // simple red flash
+    const prevFill = ctx.fillStyle;
+    ctx.fillStyle = 'rgba(255,80,80,0.08)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    setTimeout(()=> {
+      // no need to redraw here; next draw will replace content
+      ctx.fillStyle = prevFill;
+    }, 180);
+  }
+
+  /* -----------------------------
+     Render / draw
+     ----------------------------- */
+  function draw(){
+    if (!state) return;
+    // Clear background
+    // Note: ctx is already transformed for HiDPI; drawing coordinates are CSS pixels
+    const rect = canvas.getBoundingClientRect();
+    ctx.clearRect(0,0,rect.width,rect.height);
+
+    const cell = rect.width / state.cols;
+    const w = rect.width, h = rect.height;
+
+    // subtle grid-ish background (very faint)
+    ctx.fillStyle = '#041018';
+    ctx.fillRect(0,0,w,h);
+
+    // draw checker-ish floor for depth (optional for retro feel)
+    ctx.save();
+    ctx.globalAlpha = 0.06;
+    for (let y=0;y<state.rows;y++){
+      for (let x=0;x<state.cols;x+=2){
+        ctx.fillStyle = ( (y % 2) ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.00)' );
+        ctx.fillRect(x*cell, y*cell, cell, cell);
+      }
+    }
+    ctx.restore();
+
+    // Draw food
+    if (state.food) {
+      const fx = state.food.x * cell, fy = state.food.y * cell;
+      ctx.fillStyle = 'rgba(255,90,90,1)';
+      const padding = Math.max(1,cell*0.12);
+      ctx.fillRect(fx+padding, fy+padding, cell - padding*2, cell - padding*2);
+      // shine
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fillRect(fx+padding, fy+padding, (cell - padding*2)/2, (cell - padding*2)/2);
+    }
+
+    // Draw snake body
+    for (let i=0; i<state.snake.length; i++){
+      const s = state.snake[i];
+      const x = s.x*cell, y = s.y*cell;
+      // head is last item
+      if (i === state.snake.length - 1) {
+        // head
+        ctx.fillStyle = 'rgba(58,235,116,1)';
+        ctx.fillRect(x, y, cell, cell);
+        // small glossy highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.fillRect(x + cell*0.12, y + cell*0.12, cell*0.38, cell*0.2);
+      } else {
+        // body gradient
+        const t = i / state.snake.length;
+        const alpha = 0.9 - t*0.5;
+        ctx.fillStyle = `rgba(43,211,107,${alpha})`;
+        const pad = Math.max(0.5, cell * 0.08);
+        ctx.fillRect(x+pad, y+pad, cell - pad*2, cell - pad*2);
+      }
+    }
+
+    // optionally draw grid lines (disabled by default)
+    // ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+    // ctx.lineWidth = 1;
+    // for (let x=0;x<=state.cols;x++){ ctx.beginPath(); ctx.moveTo(x*cell,0); ctx.lineTo(x*cell,h); ctx.stroke(); }
+    // for (let y=0;y<=state.rows;y++){ ctx.beginPath(); ctx.moveTo(0,y*cell); ctx.lineTo(w,y*cell); ctx.stroke(); }
+
+    // If not running show an overlay message
+    if (!state.running) {
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(0,0,w,h);
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 22px ' + 'sans-serif';
+      ctx.fillText('Game Over', w/2, h/2 - 6);
+      ctx.font = '14px ' + 'sans-serif';
+      ctx.fillText('Press Restart to play again', w/2, h/2 + 18);
+    }
+
+    // If paused show small paused text
+    if (state.paused && state.running) {
+      ctx.fillStyle = 'rgba(0,0,0,0.24)';
+      ctx.fillRect(0,0,w,h);
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillText('Paused', w/2, h/2 + 6);
+    }
+  }
+
+  /* -----------------------------
+     Game loop: fixed-step ticks using requestAnimationFrame and accumulator
+     ----------------------------- */
+  function loop(now) {
+    if (!state) return;
+    if (!state.lastTime) state.lastTime = now;
+    const delta = now - state.lastTime;
+    state.lastTime = now;
+    state.accumulator += delta;
+
+    // ensure stepMs always matches current ticksPerSecond
+    state.stepMs = 1000 / state.ticksPerSecond;
+
+    // Cap accumulator to avoid huge catch-up (e.g., on tab switch)
+    const maxAccum = 200;
+    if (state.accumulator > maxAccum) state.accumulator = maxAccum;
+
+    while (state.accumulator >= state.stepMs) {
+      state.accumulator -= state.stepMs;
+      step();
+    }
+
+    draw();
+    // continue loop only if state exists; do not stop requesting frames even if paused to keep UI responsive.
+    requestAnimationFrame(loop);
+  }
+
+  /* -----------------------------
+     Resize canvas properly for HiDPI / responsive layout
+     - This sets canvas.width/height to CSS width/height * devicePixelRatio
+     - Uses ctx.setTransform to avoid cumulative scaling
+     ----------------------------- */
+  function resizeCanvas(){
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    // If the rect is 0 (hidden), ensure a default
+    const cssW = rect.width || 400;
+    const cssH = rect.height || 400;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    canvas.style.width = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+    // Set transform such that 1 unit in canvas space == 1 CSS pixel
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Redraw to new size
+    draw();
+  }
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+  });
+
+  /* -----------------------------
+     UI control handlers: Pause, Restart, Settings
+     ----------------------------- */
+  function togglePause(){
+    if (!state) return;
+    state.paused = !state.paused;
+    if (state.paused) {
+      pauseBtn.textContent = 'Resume';
+      pauseBtn.setAttribute('aria-pressed','true');
+      playBeep('pause');
+    } else {
+      pauseBtn.textContent = 'Pause';
+      pauseBtn.setAttribute('aria-pressed','false');
+      playBeep('pause');
+    }
+  }
+
+  pauseBtn.addEventListener('click', () => {
+    togglePause();
+  });
+  restartBtn.addEventListener('click', () => {
+    init(true); // restart preserving settings
+  });
+
+  // Settings modal open/close/apply
+  settingsBtn.addEventListener('click', openSettings);
+  closeSettingsBtn.addEventListener('click', closeSettings);
+  applySettingsBtn.addEventListener('click', applySettings);
+
+  // Allow Esc to close modal
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.style.display === 'flex') {
+      closeSettings();
+    }
+  });
+
+  function openSettings(){
+    // populate current values
+    const radiosD = document.querySelectorAll('input[name="difficulty"]');
+    radiosD.forEach(r => r.checked = (r.value === settings.difficulty));
+    const radiosG = document.querySelectorAll('input[name="gridsize"]');
+    radiosG.forEach(r => r.checked = (r.value === settings.gridsize));
+    const radiosW = document.querySelectorAll('input[name="wrap"]');
+    radiosW.forEach(r => r.checked = ( (r.value === 'on') === !!settings.wrap ));
+    document.getElementById('soundToggle').checked = !!settings.sound;
+
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden','false');
+    // focus apply button for keyboard users
+    applySettingsBtn.focus();
+  }
+  function closeSettings(){
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden','true');
+    settingsBtn.focus();
+  }
+  function applySettings(){
+    // read form values
+    const d = document.querySelector('input[name="difficulty"]:checked');
+    const g = document.querySelector('input[name="gridsize"]:checked');
+    const w = document.querySelector('input[name="wrap"]:checked');
+    settings.difficulty = d ? d.value : defaultSettings.difficulty;
+    settings.gridsize = g ? g.value : defaultSettings.gridsize;
+    settings.wrap = w ? (w.value === 'on') : defaultSettings.wrap;
+    settings.sound = !!document.getElementById('soundToggle').checked;
+    // persist settings
+    try { localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); } catch(e){}
+    // restart game
+    init(true);
+    closeSettings();
+  }
+
+  /* -----------------------------
+     Initialize game: create state, spawn food, resize canvas, start loop
+     - If soft is true we restart the game (clear), otherwise full init (same effect here).
+     ----------------------------- */
+  function init(soft=false){
+    state = newState();
+    // Spawn initial food
+    spawnFood();
+    // Update UI labels
+    scoreEl.textContent = state.score;
+    bestEl.textContent = state.best;
+    speedEl.textContent = state.ticksPerSecond.toFixed(1) + ' cell/s';
+    pauseBtn.textContent = 'Pause';
+    pauseBtn.setAttribute('aria-pressed','false');
+    // ensure audio context is resumed after a user gesture (some mobile browsers require user interaction)
+    // The first time user clicks Pause/Restart/etc will allow sound; we attempt to resume here if possible.
+    if (audioCtx && audioCtx.state === 'suspended') {
+      try { audioCtx.resume(); } catch(e) {}
+    }
+    // Resize canvas for current grid size
+    resizeCanvas();
+    // Start animation loop if not already started
+    requestAnimationFrame(loop);
+    // Ensure controls are focusable
+    canvas.focus();
+  }
+
+  /* -----------------------------
+     Start
+     ----------------------------- */
+  init();
+
+  // Expose one global for debugging in dev console (optional)
+  window._snake = {
+    getState: () => state,
+    setSetting: (k,v) => { settings[k]=v; init(true); }
+  };
+
+})();
+</script>
+</body>
+</html>
