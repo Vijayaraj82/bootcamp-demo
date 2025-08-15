@@ -1,0 +1,202 @@
+import React, { useEffect, useState } from 'react';
+
+/**
+ * HomePage — AI Agency Landing (fixed)
+ * - Fixed JSX mismatches and removed duplicated/stray tags
+ * - Unified modal state and handlers (openModal / closeModal)
+ * - Uses Cal.com embed URL (iframe): https://cal.com/embed/vijayaraj-cal/ai-session
+ * - Accessible modal (Escape to close, overlay click to close)
+ * - No external UI imports (uses native <button>) to avoid missing-module errors
+ */
+export default function HomePage() {
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') setShowModal(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const openModal = () => setShowModal(true);
+  const closeModal = () => setShowModal(false);
+
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900">
+      {/* NAV / HEADER */}
+      <header className="sticky top-0 z-40 bg-white/60 backdrop-blur border-b">
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="text-2xl font-bold">AI Agency</div>
+            <div className="text-sm text-gray-600">AI Systems • Chatbots • Voice • Automation</div>
+          </div>
+
+          <nav className="hidden md:flex items-center gap-6">
+            <a href="#services" className="text-sm hover:text-indigo-600">Services</a>
+            <a href="#about" className="text-sm hover:text-indigo-600">About</a>
+            <a href="#pricing" className="text-sm hover:text-indigo-600">Pricing</a>
+            <a href="#contact" className="text-sm hover:text-indigo-600">Contact</a>
+            <button
+              onClick={openModal}
+              className="ml-4 rounded-lg bg-indigo-600 px-4 py-2 text-white text-sm font-semibold hover:bg-indigo-700"
+            >
+              Book a Free AI Strategy Call
+            </button>
+          </nav>
+
+          {/* Mobile CTA */}
+          <div className="md:hidden">
+            <button
+              onClick={openModal}
+              aria-label="Book a free AI strategy call"
+              className="rounded-lg bg-indigo-600 px-3 py-2 text-white text-sm font-semibold"
+            >
+              Book
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1">
+        {/* HERO */}
+        <section className="text-center py-24 bg-gradient-to-r from-indigo-700 to-purple-700 text-white">
+          <div className="max-w-4xl mx-auto px-6">
+            <h1 className="text-5xl font-extrabold leading-tight">Build & Ship AI Products that Deliver ROI</h1>
+            <p className="mt-4 text-lg text-white/90">We design and operate AI Systems, Full Stack Applications, AI Chatbots, Voice Assistants, Workflow Automations, and provide AI Consulting.</p>
+
+            <div className="mt-8 flex items-center justify-center gap-4">
+              <button
+                onClick={openModal}
+                className="rounded-full bg-white px-6 py-3 text-indigo-700 font-semibold shadow hover:shadow-md"
+              >
+                Book a Free AI Strategy Call
+              </button>
+
+              <button
+                onClick={openModal}
+                className="rounded-full border border-white/30 px-6 py-3 text-white/95 hover:bg-white/5"
+              >
+                Let’s Talk
+              </button>
+            </div>
+
+          </div>
+        </section>
+
+        {/* SERVICES */}
+        <section id="services" className="py-16 px-6 bg-white">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-3xl font-bold text-center mb-6">Our Services</h2>
+            <p className="text-center text-gray-600 max-w-2xl mx-auto">From discovery to deployment — end-to-end AI product development and ops.</p>
+
+            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                'AI Systems',
+                'Full Stack Applications',
+                'AI Chatbots',
+                'Voice Assistants',
+                'Workflow Automations',
+                'AI Consulting'
+              ].map((s) => (
+                <div key={s} className="rounded-2xl border border-gray-200 p-6 shadow-sm">
+                  <h3 className="text-lg font-semibold">{s}</h3>
+                  <p className="mt-2 text-sm text-gray-600">Tailored {s.toLowerCase()} crafted for reliability and ROI.</p>
+                  <div className="mt-4">
+                    <button onClick={openModal} className="text-indigo-600 hover:text-indigo-700 text-sm">Get started →</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ABOUT */}
+        <section id="about" className="py-16 px-6 bg-gray-50">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-3xl font-bold mb-4">Why choose us</h2>
+            <p className="text-gray-700">Senior engineers, product leaders, and ML specialists building production-ready AI with security and ethics in mind.</p>
+          </div>
+        </section>
+
+        {/* PRICING */}
+        <section id="pricing" className="py-16 px-6 bg-white">
+          <div className="max-w-7xl mx-auto text-center">
+            <h2 className="text-3xl font-bold mb-6">Pricing</h2>
+            <div className="mt-8 grid gap-6 md:grid-cols-3">
+              {[{
+                name: 'Starter', price: '$8k–$15k', desc: 'MVP & single-workflow prototype'
+              }, {
+                name: 'Growth', price: '$25k–$60k', desc: 'Scaled production systems'
+              }, {
+                name: 'Enterprise', price: 'Custom', desc: 'Security, governance & dedicated support'
+              }].map((tier) => (
+                <div key={tier.name} className="rounded-xl border border-gray-200 p-6 shadow-sm text-left">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-semibold">{tier.name}</h3>
+                      <p className="mt-1 text-2xl font-bold">{tier.price}</p>
+                    </div>
+                    <div></div>
+                  </div>
+                  <p className="mt-4 text-sm text-gray-600">{tier.desc}</p>
+                  <div className="mt-6">
+                    <button onClick={openModal} className="rounded-lg bg-indigo-600 px-4 py-2 text-white font-semibold">Get Started</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* CONTACT / CTA */}
+        <section id="contact" className="py-16 px-6 bg-gradient-to-r from-indigo-700 to-purple-700 text-white text-center">
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-3xl font-bold mb-2">Let’s build your AI solution</h2>
+            <p className="mb-6 text-white/90">Tell us about your goals — we’ll respond within 1 business day.</p>
+            <button onClick={openModal} className="rounded-full bg-white px-6 py-3 text-indigo-700 font-semibold">Book a Free AI Strategy Call</button>
+          </div>
+        </section>
+
+      </main>
+
+      {/* FOOTER */}
+      <footer className="bg-gray-900 text-white text-center py-6">
+        <div className="max-w-7xl mx-auto px-6">© {new Date().getFullYear()} AI Agency. All rights reserved.</div>
+      </footer>
+
+      {/* BOOKING MODAL */}
+      {showModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center"
+        >
+          {/* overlay */}
+          <div
+            onClick={closeModal}
+            className="absolute inset-0 bg-black/60 backdrop-blur"
+          />
+
+          {/* modal content */}
+          <div className="relative z-10 w-full max-w-4xl rounded-xl overflow-hidden bg-white shadow-lg">
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <div className="text-sm font-medium">Book a Free AI Strategy Call</div>
+              <button aria-label="Close booking" onClick={closeModal} className="text-gray-600 hover:text-gray-800">✕</button>
+            </div>
+
+            <div className="w-full h-[80vh]">
+              <iframe
+                src="https://cal.com/embed/vijayaraj-cal/ai-session"
+                title="AI Strategy Call"
+                className="w-full h-full"
+                frameBorder={0}
+                allowFullScreen
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
